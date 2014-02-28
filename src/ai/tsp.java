@@ -5,12 +5,12 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map.Entry;
 import java.util.PriorityQueue;
 import java.util.Scanner;
-import java.util.SortedMap;
-import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -23,6 +23,13 @@ public class tsp {
 	public static int ROW_MAX = 0;
 	public static int COL_MAX = 0;
 	private static final Comparator<Node> my_total_order = new myComp();
+	private static final Comparator<State> state_comparator = new stateComp();
+
+	private static class stateComp implements Comparator<State> {
+		public int compare(State s, State t) {
+			return ((Integer) (s.f)).compareTo((Integer) (t.f));
+		}
+	}
 
 	private static class myComp implements Comparator<Node> {
 
@@ -133,21 +140,22 @@ public class tsp {
 
 	}
 
-	public static ArrayList<String> shortestPath() {
+	public static HashMap<String, Double> shortestPath() {
 
-		ArrayList<String> allEdges = new ArrayList<String>();
-		char[] checkpoints = allCheckPoints.toString().toCharArray();
+		HashMap<String, Double> allEdges = new HashMap<String, Double>();
+		Character[] checkpoints = allCheckPoints
+				.toArray(new Character[allCheckPoints.size()]);
 		Arrays.sort(checkpoints);
 		double edgeCost = 0.0;
-		/*
-		 * for (int i = 0; i < checkpoints.length; i++) { for (int j = i + 1; j
-		 * < checkpoints.length; j++) { System.out.print(checkpoints[i] +
-		 * " and " + checkpoints[j]); edgeCost = AStarsearch(checkpoints[i],
-		 * checkpoints[j]); System.out.print(" " + edgeCost);
-		 * System.out.println(); allEdges.add(checkpoints[i] + "," +
-		 * checkpoints[j] + "," + edgeCost); } }
-		 */
-		System.out.println(AStarsearch('E', 'F'));
+		for (int i = 0; i < checkpoints.length; i++) {
+			for (int j = i + 1; j < checkpoints.length; j++) {
+				System.out.print(checkpoints[i] + " and " + checkpoints[j]);
+				edgeCost = AStarsearch(checkpoints[i], checkpoints[j]);
+				System.out.print(" " + edgeCost);
+				System.out.println();
+				allEdges.put(checkpoints[i] + "," + checkpoints[j], edgeCost);
+			}
+		}
 		return allEdges;
 	}
 
@@ -156,6 +164,7 @@ public class tsp {
 		List<Character> visited_checkpoints;
 		double g;
 		double h;
+		int f;
 
 		State(char current_checkpoint, List<Character> visited_checkpoints,
 				double g, double h) {
@@ -163,14 +172,67 @@ public class tsp {
 			this.visited_checkpoints = visited_checkpoints;
 			this.g = g;
 			this.h = h;
+			this.f = (int) (g+h); //TODO: remove int
 		}
 	}
 
+	private static HashMap<String, Double> getSubgraph(HashMap<String, Double> allEdges,
+			ArrayList<Character> visited) {
+
+		HashMap<String, Double> subgraph = new HashMap<String, Double>();
+		String[] parts = null;
+		//adding source to subgraph
+		for (Entry<String, Double> edge : allEdges.entrySet()) {
+			parts = edge.getKey().split(",");
+			if(parts[0].charAt(0) != 'A' || parts[1].charAt(0) != 'A'){
+				if (!visited.contains(parts[0].charAt(0)) && !visited.contains(parts[1].charAt(0))) {
+					subgraph.put(edge.getKey(), edge.getValue());
+				}
+			}
+		}
+		return subgraph;
+	}
+
 	public static void tsp() {
-		ArrayList<String> allEdges = shortestPath();
+		
+		HashMap<String, Double> allEdges = shortestPath();
 		ArrayList<Character> visited = new ArrayList<Character>();
-		allCheckPoints.remove(allCheckPoints.first());
-		for (char current : allCheckPoints) {
+		HashMap<String, Double> subgraph = new HashMap<String, Double>();
+		
+		// allCheckPoints.remove(allCheckPoints.first());
+		char currentCheckPoint = 'A';
+		double h = 0, g = 0;
+		double parentPathCost = 0;
+		char current;
+		PriorityQueue<State> pq = new PriorityQueue<State>(17, state_comparator);
+		State s = new State(currentCheckPoint, visited, g, h);
+		pq.add(s);
+		parentPathCost = 0;
+		while (!pq.isEmpty()) {
+			s = pq.remove();
+			System.out.println(s.current_checkpoint +","+ s.g+","+s.h+"," +s.f);
+			parentPathCost = s.g;
+			current = s.current_checkpoint;
+			if (isEqual(visited, allCheckPoints)) {
+				return;
+			}
+			visited.add(current);
+			// explore neighbors
+			for (char innerC : allCheckPoints) {
+				if (visited.contains(innerC)) {
+					continue;
+				}
+				subgraph = getSubgraph(allEdges, visited);
+				h = MST(subgraph, innerC);
+				if(current < innerC){
+					g = parentPathCost + allEdges.get(current+","+innerC);;
+				}else{
+					g = parentPathCost + allEdges.get(innerC + ","+ current);
+				}
+				
+				s = new State(innerC, visited, g, h);
+				pq.add(s);
+			}
 
 		}
 	}
@@ -185,24 +247,22 @@ public class tsp {
 		char nextNode;
 		Node from = null;
 		boolean[][] visited_coordinates = new boolean[ROW_MAX + 1][COL_MAX + 1];
-		// System.out.print(" (" +s[0] + ","+ s[1]+") to (");
-		// System.out.println(t[0] + ","+ t[1] +")");
 		PriorityQueue<Node> pq = new PriorityQueue<Node>(17, my_total_order);
 		pq.add(new Node(startNode, getManhattanDist(s, t), s[0], s[1], 0, c));
 		while (!pq.isEmpty()) {
 			from = pq.remove();
 			c[0] = from.x;
 			c[1] = from.y;
-			if(visited_coordinates[c[0]][c[1]] == true){
+			if (visited_coordinates[c[0]][c[1]] == true) {
 				continue;
-			}else{
+			} else {
 				visited_coordinates[c[0]][c[1]] = true;
 			}
 			System.out.println(from.y + "," + from.x + "," + from.pathCost
 					+ "," + (from.searchCost - from.pathCost) + ","
 					+ from.searchCost);
-			
-			//System.out.println("("+from.x+","+from.y+") [parent("+from.parent[0]+","+from.parent[1]+")]");
+
+			// System.out.println("("+from.x+","+from.y+") [parent("+from.parent[0]+","+from.parent[1]+")]");
 			if (from.node == endNode) {
 				return from.searchCost; // solution found
 			}
@@ -213,10 +273,10 @@ public class tsp {
 				if (nextNode != '*') {
 					intermediate[0] = c[0] - 1;
 					intermediate[1] = c[1];
-						pq.add(new Node(nextNode, 1 + from.pathCost
-								+ getManhattanDist(intermediate, t),
-								intermediate[0], intermediate[1],
-								1 + from.pathCost, c));
+					pq.add(new Node(nextNode, 1 + from.pathCost
+							+ getManhattanDist(intermediate, t),
+							intermediate[0], intermediate[1],
+							1 + from.pathCost, c));
 				}
 			}
 			// R
@@ -226,10 +286,10 @@ public class tsp {
 				if (nextNode != '*') {
 					intermediate[0] = c[0];
 					intermediate[1] = c[1] + 1;
-						pq.add(new Node(nextNode, 1 + from.pathCost
-								+ getManhattanDist(intermediate, t),
-								intermediate[0], intermediate[1],
-								1 + from.pathCost, c));
+					pq.add(new Node(nextNode, 1 + from.pathCost
+							+ getManhattanDist(intermediate, t),
+							intermediate[0], intermediate[1],
+							1 + from.pathCost, c));
 				}
 			}
 			// D
@@ -239,10 +299,10 @@ public class tsp {
 				if (nextNode != '*') {
 					intermediate[0] = c[0] + 1;
 					intermediate[1] = c[1];
-						pq.add(new Node(nextNode, 1 + from.pathCost
-								+ getManhattanDist(intermediate, t),
-								intermediate[0], intermediate[1],
-								1 + from.pathCost, c));
+					pq.add(new Node(nextNode, 1 + from.pathCost
+							+ getManhattanDist(intermediate, t),
+							intermediate[0], intermediate[1],
+							1 + from.pathCost, c));
 				}
 			}
 			// L
@@ -252,10 +312,10 @@ public class tsp {
 				if (nextNode != '*') {
 					intermediate[0] = c[0];
 					intermediate[1] = c[1] - 1;
-						pq.add(new Node(nextNode, 1 + from.pathCost
-								+ getManhattanDist(intermediate, t),
-								intermediate[0], intermediate[1],
-								1 + from.pathCost, c));
+					pq.add(new Node(nextNode, 1 + from.pathCost
+							+ getManhattanDist(intermediate, t),
+							intermediate[0], intermediate[1],
+							1 + from.pathCost, c));
 
 				}
 			}
@@ -289,44 +349,89 @@ public class tsp {
 			}
 		}
 	}
+	private static HashMap<String, Double> getNeighbours(HashMap<String, Double> graph, char currentCheckPoint){
+		HashMap<String, Double> neighbours = new HashMap<String, Double>();
+		String[] str = null;
+		for(String c : graph.keySet()){
+			str = c.split(",");
+			if(str[0].charAt(0) == currentCheckPoint){
+				neighbours.put(c, graph.get(c));
+			}else if(str[1].charAt(0) == currentCheckPoint){
+				neighbours.put(str[1]+","+str[0], graph.get(c));
+			}
+		}
+		return neighbours;
+	}
+	private static class nbr{
+		String str;
+		double cost;
+		
+		nbr(String str, double cost){
+			this.str = str;
+			this.cost = cost;
+		}
+	}
+	
+	private static final Comparator<nbr> nbr_comparator = new nbrComp();
 
-	public ArrayList<String> MST(ArrayList<String> graph) {
+	private static class nbrComp implements Comparator<nbr> {
+		public int compare(nbr s, nbr t) {
+			if( s.cost < t.cost){
+				return -1;
+			}else{
+				return 1;
+			}
+		}
+	}
+	
+	public static double MST(HashMap<String, Double> graph, char current) {
 
 		ArrayList<String> mst = new ArrayList<String>();
-		SortedMap<Double, Character[]> sortedEdges = new TreeMap<Double, Character[]>();
-		Character[] nodes = null;
 		HashSet<Character> Vnew = new HashSet<Character>();
-		HashSet<Character> V = new HashSet<Character>();
+		double mstcost = 0.0;
+		PriorityQueue<nbr> pq = new PriorityQueue<nbr>(11, nbr_comparator);
+		nbr popped = null;
+		TreeSet<Character> allPointsInSubgraph = new TreeSet<Character>();
+		for(String entry : graph.keySet()){
+			allPointsInSubgraph.add(entry.charAt(0));
+		}
+		Vnew.add(current);
+		while (!isEqual(Vnew, allPointsInSubgraph)) {
 
-		for (String entry : graph) {
-			String[] str = entry.split(",");
-			nodes = new Character[2];
-			nodes[0] = str[1].toCharArray()[0];
-			nodes[1] = str[2].toCharArray()[0];
-			V.add(nodes[0]);
-			V.add(nodes[1]);
-			sortedEdges.put(Double.parseDouble(str[0]), nodes);
+				for(Entry<String, Double> v : getNeighbours(graph, current).entrySet()){
+					if(!Vnew.contains(v.getKey().charAt(2))){
+						pq.add(new nbr(v.getKey(), v.getValue()));
+					}
+				}
+				popped = pq.remove();
+				mstcost += popped.cost;
+				mst.add(popped.str + ","
+						+ popped.cost);
+				current = popped.str.charAt(2); 
+				Vnew.add(current);
 		}
-		Vnew.add(nodes[1]);
-		Character[] currentNodes = { '1', '2' };
-		double edgeCost = 0.0;
-		while (!isEqual(Vnew, V)) {
-			while (Vnew.contains(currentNodes[0])
-					&& !V.contains(currentNodes[1])) {
-				edgeCost = sortedEdges.firstKey();
-				currentNodes = sortedEdges.remove(edgeCost);
-			}
-			Vnew.add(currentNodes[1]);
-			mst.add(currentNodes[0] + "," + currentNodes[1] + "," + edgeCost);
-		}
-		return mst;
+
+		return mstcost;
 	}
 
-	private boolean isEqual(HashSet<Character> Vnew, HashSet<Character> V) {
+	private static boolean isEqual(HashSet<Character> Vnew, TreeSet<Character> V) {
 
 		boolean isEqual = true;
-		for (char ch : Vnew) {
-			if (!V.contains(ch)) {
+		for (char ch : V) {
+			if (!Vnew.contains(ch)) {
+				isEqual = false;
+				break;
+			}
+		}
+		return isEqual;
+	}
+
+	private static boolean isEqual(ArrayList<Character> Vnew,
+			TreeSet<Character> V) {
+
+		boolean isEqual = true;
+		for (char ch : V) {
+			if (!Vnew.contains(ch)) {
 				isEqual = false;
 				break;
 			}
