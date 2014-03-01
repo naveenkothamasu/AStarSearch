@@ -1,13 +1,14 @@
 package ai;
 
+import java.io.BufferedWriter;
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map.Entry;
 import java.util.PriorityQueue;
 import java.util.Scanner;
@@ -33,17 +34,23 @@ public class tsp {
 			getIndex(t.current_checkpoint, t_xy);
 			if (s.f == t.f) {
 				int i = 2;
-				while(s_xy[1] == t_xy[1] && s_xy[0] == t_xy[0]){
-					if(s.visited_checkpoints.get(s.visited_checkpoints.size()-i) >= 0 
-							&& t.visited_checkpoints.get(t.visited_checkpoints.size()-i) > 0){
-						getIndex(s.visited_checkpoints.get(s.visited_checkpoints.size()-i), s_xy);
-						getIndex(t.visited_checkpoints.get(t.visited_checkpoints.size()-i), t_xy);
-					}else{
+				while (s_xy[1] == t_xy[1] && s_xy[0] == t_xy[0]) {
+					if (s.visited_checkpoints.get(s.visited_checkpoints.size()
+							- i) >= 0
+							&& t.visited_checkpoints.get(t.visited_checkpoints
+									.size() - i) > 0) {
+						getIndex(
+								s.visited_checkpoints.get(s.visited_checkpoints
+										.size() - i), s_xy);
+						getIndex(
+								t.visited_checkpoints.get(t.visited_checkpoints
+										.size() - i), t_xy);
+					} else {
 						break;
 					}
 					i++;
 				}
-				
+
 				if (s_xy[0] == t_xy[0]) {
 					return ((Integer) s_xy[1]).compareTo(t_xy[1]);
 				} else {
@@ -51,14 +58,13 @@ public class tsp {
 				}
 
 			} else {
-				if(s.f < t.f){
+				if (s.f < t.f) {
 					return -1;
-				}else{
+				} else {
 					return 1;
 				}
-				//return ((Integer) s.f).compareTo(t.f);
+				// return ((Integer) s.f).compareTo(t.f);
 			}
-
 
 		}
 	}
@@ -80,9 +86,9 @@ public class tsp {
 				}
 
 			} else {
-				if(s.searchCost < t.searchCost){
+				if (s.searchCost < t.searchCost) {
 					return -1;
-				}else{
+				} else {
 					return 1;
 				}
 			}
@@ -99,7 +105,8 @@ public class tsp {
 		int pathCost;
 		int[] parent = new int[2];
 
-		Node(char node, double searchCost, int x, int y, int pathCost, int[] parent) {
+		Node(char node, double searchCost, int x, int y, int pathCost,
+				int[] parent) {
 			this.node = node;
 			this.searchCost = searchCost;
 			this.x = x;
@@ -110,7 +117,7 @@ public class tsp {
 		}
 	}
 
-	public static void main(String[] args) {
+	public static void main(String[] args) throws IOException {
 
 		int taskNumber = 0;
 		String inputFile = null;
@@ -160,9 +167,9 @@ public class tsp {
 		COL_MAX = map.get(0).length - 1;
 
 		if (taskNumber == 1) {
-			shortestPath();
+			shortestPath(outputFile, outputLog, false);
 		} else if (taskNumber == 2) {
-			tsp();
+			tsp(outputFile, outputLog);
 		}
 
 	}
@@ -176,22 +183,36 @@ public class tsp {
 
 	}
 
-	public static HashMap<String, Double> shortestPath() {
+	public static HashMap<String, Double> shortestPath(String outputFileName,
+			String outputLogName, boolean fromtsp) throws IOException {
 
 		HashMap<String, Double> allEdges = new HashMap<String, Double>();
 		Character[] checkpoints = allCheckPoints
 				.toArray(new Character[allCheckPoints.size()]);
 		Arrays.sort(checkpoints);
 		double edgeCost = 0.0;
+		BufferedWriter outputFile = null;
+		BufferedWriter outputLog = null;
+
+		outputFile = new BufferedWriter(new FileWriter(outputFileName));
+		outputLog = new BufferedWriter(new FileWriter(outputLogName));
 		for (int i = 0; i < checkpoints.length; i++) {
 			for (int j = i + 1; j < checkpoints.length; j++) {
-				//System.out.print(checkpoints[i] + " and " + checkpoints[j]);
-				edgeCost = AStarsearch(checkpoints[i], checkpoints[j]);
-				//System.out.print(" " + edgeCost);
-				//System.out.println();
+				// System.out.print(checkpoints[i] + " and " + checkpoints[j]);
+				edgeCost = AStarsearch(checkpoints[i], checkpoints[j],
+						outputLog);
+				// System.out.print(" " + edgeCost);
+				// System.out.println();
 				allEdges.put(checkpoints[i] + "," + checkpoints[j], edgeCost);
+				if (fromtsp == false) {
+					outputFile.write(checkpoints[i] + "," + checkpoints[j]
+							+ "," + edgeCost);
+					outputFile.newLine();
+				}
 			}
 		}
+		outputFile.close();
+		outputLog.close();
 		return allEdges;
 	}
 
@@ -202,8 +223,8 @@ public class tsp {
 		double h;
 		double f;
 
-		State(char current_checkpoint, ArrayList<Character> visited_checkpoints,
-				double g, double h) {
+		State(char current_checkpoint,
+				ArrayList<Character> visited_checkpoints, double g, double h) {
 			this.current_checkpoint = current_checkpoint;
 			this.visited_checkpoints = visited_checkpoints;
 			this.g = g;
@@ -220,63 +241,86 @@ public class tsp {
 		// adding source to subgraph
 		for (Entry<String, Double> edge : allEdges.entrySet()) {
 			parts = edge.getKey().split(",");
-			if (
-					(!visited.contains(parts[0].charAt(0)) && !visited.contains(parts[1].charAt(0)))
-					|| (parts[0].charAt(0) == 'A' && !visited.contains(parts[1].charAt(0)) )
-					|| (parts[1].charAt(0) == 'A' && !visited.contains(parts[0].charAt(0)) )
-				) {
+			if ((!visited.contains(parts[0].charAt(0)) && !visited
+					.contains(parts[1].charAt(0)))
+					|| (parts[0].charAt(0) == 'A' && !visited.contains(parts[1]
+							.charAt(0)))
+					|| (parts[1].charAt(0) == 'A' && !visited.contains(parts[0]
+							.charAt(0)))) {
 				subgraph.put(edge.getKey(), edge.getValue());
 			}
 		}
 		return subgraph;
 	}
 
-	public static void tsp() {
+	public static void tsp(String outputFileName, String outputLogName)
+			throws IOException {
 
-		HashMap<String, Double> allEdges = shortestPath();
+		HashMap<String, Double> allEdges = shortestPath(outputFileName,
+				outputLogName, true);
 		HashMap<String, Double> subgraph = new HashMap<String, Double>();
 
 		char currentCheckPoint = 'A';
 		double h = 0, g = 0;
 		double parentPathCost = 0;
 		char current;
+		BufferedWriter outputFile = new BufferedWriter(new FileWriter(
+				outputFileName));
+		BufferedWriter outputLog = new BufferedWriter(new FileWriter(
+				outputLogName));
+
 		PriorityQueue<State> pq = new PriorityQueue<State>(17, state_comparator);
-		
+
 		ArrayList<Character> temp = new ArrayList<Character>();
 		temp.add('A');
-		
+
 		State child;
 		h = MST(allEdges);
 		State s = new State(currentCheckPoint, temp, g, h);
 		pq.add(s);
 		parentPathCost = 0;
-		ArrayList<Character> visited = new ArrayList<Character>();
 		while (!pq.isEmpty()) {
 			s = pq.remove();
 			/*
-			if (visited.contains(s.current_checkpoint)) {
-				continue;
-			}else{
-				visited.add(s.current_checkpoint);
-			}
-			*/
-			System.out.println(s.visited_checkpoints + "," + s.g + "," + s.h + "," + s.f);
+			 * if (visited.contains(s.current_checkpoint)) { continue; }else{
+			 * visited.add(s.current_checkpoint); }
+			 */
+			 String str = new String();
+			 for(char ch : s.visited_checkpoints){
+			 	str += Character.toString(ch);
+			 }
+			outputLog.write(str + "," + s.g + "," + s.h + ","
+					+ s.f);
+			outputLog.newLine();
 			parentPathCost = s.g;
 			current = s.current_checkpoint;
 			if (isEqual(s.visited_checkpoints, allCheckPoints)) {
 				s.visited_checkpoints.add('A');
 				child = new State('A', s.visited_checkpoints, s.f, 0);
-				System.out.println(child.visited_checkpoints + "," + child.g + "," + child.h + "," + child.f);
+				str = new String();
+				 for(char ch : s.visited_checkpoints){
+				 	str += Character.toString(ch);
+				 }
+				outputLog.write(str + "," + child.g + ","
+						+ child.h + "," + child.f);
+				outputLog.newLine();
+				for (char ch : s.visited_checkpoints) {
+					outputFile.write(ch);
+					outputFile.newLine();
+				}
+				outputFile.write("Total Tour Cost: " + child.f);
+				outputFile.close();
+				outputLog.close();
 				return; // solution found
 			}
-			//visited.add(current);
+			// visited.add(current);
 			// explore neighbors
 
 			subgraph = getSubgraph(allEdges, s.visited_checkpoints);
 			h = MST(subgraph);
 			for (char innerC : allCheckPoints) {
-				if (s.visited_checkpoints != null && 
-						s.visited_checkpoints.contains(innerC)) {
+				if (s.visited_checkpoints != null
+						&& s.visited_checkpoints.contains(innerC)) {
 					continue;
 				}
 				if (current < innerC) {
@@ -285,7 +329,7 @@ public class tsp {
 					g = parentPathCost + allEdges.get(innerC + "," + current);
 				}
 				ArrayList<Character> current_visited = new ArrayList<Character>();
-				if(s.visited_checkpoints != null){
+				if (s.visited_checkpoints != null) {
 					current_visited.addAll(s.visited_checkpoints);
 				}
 				current_visited.add(innerC);
@@ -294,9 +338,12 @@ public class tsp {
 			}
 
 		}
+		outputFile.close();
+		outputLog.close();
 	}
 
-	public static double AStarsearch(char startNode, char endNode) {
+	public static double AStarsearch(char startNode, char endNode,
+			BufferedWriter outputLog) throws IOException {
 		int[] s = new int[2];
 		getIndex(startNode, s);
 		int[] t = new int[2];
@@ -308,6 +355,15 @@ public class tsp {
 		boolean[][] visited_coordinates = new boolean[ROW_MAX + 1][COL_MAX + 1];
 		PriorityQueue<Node> pq = new PriorityQueue<Node>(17, my_total_order);
 		pq.add(new Node(startNode, getManhattanDist(s, t), s[0], s[1], 0, c));
+		/*
+		 * from 'A' to 'B' -----------------------------------------------
+		 */
+		outputLog.write("from '" + startNode + "' to '" + endNode + "'");
+		outputLog.newLine();
+		outputLog.write("-----------------------------------------------");
+		outputLog.newLine();
+		outputLog.write("x,y,g,h,f");
+		outputLog.newLine();
 		while (!pq.isEmpty()) {
 			from = pq.remove();
 			c[0] = from.x;
@@ -317,12 +373,17 @@ public class tsp {
 			} else {
 				visited_coordinates[c[0]][c[1]] = true;
 			}
-			System.out.println(from.y + "," + from.x + "," + from.pathCost
-					+ "," + (from.searchCost - from.pathCost) + ","
-					+ from.searchCost);
+			outputLog
+					.write(from.y + "," + from.x + "," + from.pathCost + ","
+							+ (from.searchCost - from.pathCost) + ","
+							+ from.searchCost);
+			outputLog.newLine();
 
 			// System.out.println("("+from.x+","+from.y+") [parent("+from.parent[0]+","+from.parent[1]+")]");
 			if (from.node == endNode) {
+				outputLog
+						.write("-----------------------------------------------");
+				outputLog.newLine();
 				return from.searchCost; // solution found
 			}
 			// U
@@ -440,18 +501,18 @@ public class tsp {
 		public int compare(nbr s, nbr t) {
 			if (s.cost < t.cost) {
 				return -1;
-			} else if(s.cost > t.cost){
+			} else if (s.cost > t.cost) {
 				return 1;
-			}else{
+			} else {
 				int[] s_xy = new int[2];
 				getIndex(s.str.charAt(2), s_xy);
 				int[] t_xy = new int[2];
 				getIndex(t.str.charAt(2), t_xy);
-					if (s_xy[0] == t_xy[0]) {
-						return ((Integer) s_xy[1]).compareTo(t_xy[1]);
-					} else {
-						return ((Integer) s_xy[0]).compareTo(t_xy[0]);
-					}
+				if (s_xy[0] == t_xy[0]) {
+					return ((Integer) s_xy[1]).compareTo(t_xy[1]);
+				} else {
+					return ((Integer) s_xy[0]).compareTo(t_xy[0]);
+				}
 			}
 		}
 	}
@@ -474,14 +535,15 @@ public class tsp {
 
 			for (Entry<String, Double> v : getNeighbours(graph, current)
 					.entrySet()) {
-				if(!Vnew.contains(v.getKey().charAt(2))){
+				if (!Vnew.contains(v.getKey().charAt(2))) {
 					pq.add(new nbr(v.getKey(), v.getValue()));
 				}
 			}
 			popped = pq.remove();
-			while (Vnew.contains(popped.str.charAt(0)) && Vnew.contains(popped.str.charAt(2))) {
+			while (Vnew.contains(popped.str.charAt(0))
+					&& Vnew.contains(popped.str.charAt(2))) {
 				popped = pq.remove();
-				
+
 			}
 			mstcost += popped.cost;
 			mst.add(popped.str + "," + popped.cost);
