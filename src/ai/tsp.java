@@ -51,7 +51,12 @@ public class tsp {
 				}
 
 			} else {
-				return ((Integer) s.f).compareTo(t.f);
+				if(s.f < t.f){
+					return -1;
+				}else{
+					return 1;
+				}
+				//return ((Integer) s.f).compareTo(t.f);
 			}
 
 
@@ -75,7 +80,11 @@ public class tsp {
 				}
 
 			} else {
-				return ((Integer) s.searchCost).compareTo(t.searchCost);
+				if(s.searchCost < t.searchCost){
+					return -1;
+				}else{
+					return 1;
+				}
 			}
 
 		}
@@ -84,13 +93,13 @@ public class tsp {
 
 	private static class Node {
 		char node;
-		int searchCost;
+		double searchCost;
 		int x;
 		int y;
 		int pathCost;
 		int[] parent = new int[2];
 
-		Node(char node, int searchCost, int x, int y, int pathCost, int[] parent) {
+		Node(char node, double searchCost, int x, int y, int pathCost, int[] parent) {
 			this.node = node;
 			this.searchCost = searchCost;
 			this.x = x;
@@ -191,7 +200,7 @@ public class tsp {
 		ArrayList<Character> visited_checkpoints;
 		double g;
 		double h;
-		int f;
+		double f;
 
 		State(char current_checkpoint, ArrayList<Character> visited_checkpoints,
 				double g, double h) {
@@ -199,7 +208,7 @@ public class tsp {
 			this.visited_checkpoints = visited_checkpoints;
 			this.g = g;
 			this.h = h;
-			this.f = (int) (g + h); // TODO: remove int
+			this.f = (int) (g + h);
 		}
 	}
 
@@ -287,7 +296,7 @@ public class tsp {
 		}
 	}
 
-	public static int AStarsearch(char startNode, char endNode) {
+	public static double AStarsearch(char startNode, char endNode) {
 		int[] s = new int[2];
 		getIndex(startNode, s);
 		int[] t = new int[2];
