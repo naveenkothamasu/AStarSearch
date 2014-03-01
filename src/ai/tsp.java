@@ -27,7 +27,34 @@ public class tsp {
 
 	private static class stateComp implements Comparator<State> {
 		public int compare(State s, State t) {
-			return ((Integer) (s.f)).compareTo((Integer) (t.f));
+			int[] s_xy = new int[2];
+			getIndex(s.current_checkpoint, s_xy);
+			int[] t_xy = new int[2];
+			getIndex(t.current_checkpoint, t_xy);
+			if (s.f == t.f) {
+				int i = 2;
+				while(s_xy[1] == t_xy[1] && s_xy[0] == t_xy[0]){
+					if(s.visited_checkpoints.get(s.visited_checkpoints.size()-i) >= 0 
+							&& t.visited_checkpoints.get(t.visited_checkpoints.size()-i) > 0){
+						getIndex(s.visited_checkpoints.get(s.visited_checkpoints.size()-i), s_xy);
+						getIndex(t.visited_checkpoints.get(t.visited_checkpoints.size()-i), t_xy);
+					}else{
+						break;
+					}
+					i++;
+				}
+				
+				if (s_xy[0] == t_xy[0]) {
+					return ((Integer) s_xy[1]).compareTo(t_xy[1]);
+				} else {
+					return ((Integer) s_xy[0]).compareTo(t_xy[0]);
+				}
+
+			} else {
+				return ((Integer) s.f).compareTo(t.f);
+			}
+
+
 		}
 	}
 
@@ -149,10 +176,10 @@ public class tsp {
 		double edgeCost = 0.0;
 		for (int i = 0; i < checkpoints.length; i++) {
 			for (int j = i + 1; j < checkpoints.length; j++) {
-				System.out.print(checkpoints[i] + " and " + checkpoints[j]);
+				//System.out.print(checkpoints[i] + " and " + checkpoints[j]);
 				edgeCost = AStarsearch(checkpoints[i], checkpoints[j]);
-				System.out.print(" " + edgeCost);
-				System.out.println();
+				//System.out.print(" " + edgeCost);
+				//System.out.println();
 				allEdges.put(checkpoints[i] + "," + checkpoints[j], edgeCost);
 			}
 		}
@@ -161,77 +188,100 @@ public class tsp {
 
 	private static class State {
 		char current_checkpoint;
-		List<Character> visited_checkpoints;
+		ArrayList<Character> visited_checkpoints;
 		double g;
 		double h;
 		int f;
 
-		State(char current_checkpoint, List<Character> visited_checkpoints,
+		State(char current_checkpoint, ArrayList<Character> visited_checkpoints,
 				double g, double h) {
 			this.current_checkpoint = current_checkpoint;
 			this.visited_checkpoints = visited_checkpoints;
 			this.g = g;
 			this.h = h;
-			this.f = (int) (g+h); //TODO: remove int
+			this.f = (int) (g + h); // TODO: remove int
 		}
 	}
 
-	private static HashMap<String, Double> getSubgraph(HashMap<String, Double> allEdges,
-			ArrayList<Character> visited) {
+	private static HashMap<String, Double> getSubgraph(
+			HashMap<String, Double> allEdges, ArrayList<Character> visited) {
 
 		HashMap<String, Double> subgraph = new HashMap<String, Double>();
 		String[] parts = null;
-		//adding source to subgraph
+		// adding source to subgraph
 		for (Entry<String, Double> edge : allEdges.entrySet()) {
 			parts = edge.getKey().split(",");
-			if(parts[0].charAt(0) != 'A' || parts[1].charAt(0) != 'A'){
-				if (!visited.contains(parts[0].charAt(0)) && !visited.contains(parts[1].charAt(0))) {
-					subgraph.put(edge.getKey(), edge.getValue());
-				}
+			if (
+					(!visited.contains(parts[0].charAt(0)) && !visited.contains(parts[1].charAt(0)))
+					|| (parts[0].charAt(0) == 'A' && !visited.contains(parts[1].charAt(0)) )
+					|| (parts[1].charAt(0) == 'A' && !visited.contains(parts[0].charAt(0)) )
+				) {
+				subgraph.put(edge.getKey(), edge.getValue());
 			}
 		}
 		return subgraph;
 	}
 
 	public static void tsp() {
-		
+
 		HashMap<String, Double> allEdges = shortestPath();
-		ArrayList<Character> visited = new ArrayList<Character>();
 		HashMap<String, Double> subgraph = new HashMap<String, Double>();
-		
-		// allCheckPoints.remove(allCheckPoints.first());
+
 		char currentCheckPoint = 'A';
 		double h = 0, g = 0;
 		double parentPathCost = 0;
 		char current;
 		PriorityQueue<State> pq = new PriorityQueue<State>(17, state_comparator);
-		State s = new State(currentCheckPoint, visited, g, h);
+		
+		ArrayList<Character> temp = new ArrayList<Character>();
+		temp.add('A');
+		
+		State child;
+		h = MST(allEdges);
+		State s = new State(currentCheckPoint, temp, g, h);
 		pq.add(s);
 		parentPathCost = 0;
+		ArrayList<Character> visited = new ArrayList<Character>();
 		while (!pq.isEmpty()) {
 			s = pq.remove();
-			System.out.println(s.current_checkpoint +","+ s.g+","+s.h+"," +s.f);
+			/*
+			if (visited.contains(s.current_checkpoint)) {
+				continue;
+			}else{
+				visited.add(s.current_checkpoint);
+			}
+			*/
+			System.out.println(s.visited_checkpoints + "," + s.g + "," + s.h + "," + s.f);
 			parentPathCost = s.g;
 			current = s.current_checkpoint;
-			if (isEqual(visited, allCheckPoints)) {
-				return;
+			if (isEqual(s.visited_checkpoints, allCheckPoints)) {
+				s.visited_checkpoints.add('A');
+				child = new State('A', s.visited_checkpoints, s.f, 0);
+				System.out.println(child.visited_checkpoints + "," + child.g + "," + child.h + "," + child.f);
+				return; // solution found
 			}
-			visited.add(current);
+			//visited.add(current);
 			// explore neighbors
+
+			subgraph = getSubgraph(allEdges, s.visited_checkpoints);
+			h = MST(subgraph);
 			for (char innerC : allCheckPoints) {
-				if (visited.contains(innerC)) {
+				if (s.visited_checkpoints != null && 
+						s.visited_checkpoints.contains(innerC)) {
 					continue;
 				}
-				subgraph = getSubgraph(allEdges, visited);
-				h = MST(subgraph, innerC);
-				if(current < innerC){
-					g = parentPathCost + allEdges.get(current+","+innerC);;
-				}else{
-					g = parentPathCost + allEdges.get(innerC + ","+ current);
+				if (current < innerC) {
+					g = parentPathCost + allEdges.get(current + "," + innerC);
+				} else {
+					g = parentPathCost + allEdges.get(innerC + "," + current);
 				}
-				
-				s = new State(innerC, visited, g, h);
-				pq.add(s);
+				ArrayList<Character> current_visited = new ArrayList<Character>();
+				if(s.visited_checkpoints != null){
+					current_visited.addAll(s.visited_checkpoints);
+				}
+				current_visited.add(innerC);
+				child = new State(innerC, current_visited, g, h);
+				pq.add(child);
 			}
 
 		}
@@ -349,42 +399,55 @@ public class tsp {
 			}
 		}
 	}
-	private static HashMap<String, Double> getNeighbours(HashMap<String, Double> graph, char currentCheckPoint){
+
+	private static HashMap<String, Double> getNeighbours(
+			HashMap<String, Double> graph, char currentCheckPoint) {
 		HashMap<String, Double> neighbours = new HashMap<String, Double>();
 		String[] str = null;
-		for(String c : graph.keySet()){
+		for (String c : graph.keySet()) {
 			str = c.split(",");
-			if(str[0].charAt(0) == currentCheckPoint){
+			if (str[0].charAt(0) == currentCheckPoint) {
 				neighbours.put(c, graph.get(c));
-			}else if(str[1].charAt(0) == currentCheckPoint){
-				neighbours.put(str[1]+","+str[0], graph.get(c));
+			} else if (str[1].charAt(0) == currentCheckPoint) {
+				neighbours.put(str[1] + "," + str[0], graph.get(c));
 			}
 		}
 		return neighbours;
 	}
-	private static class nbr{
+
+	private static class nbr {
 		String str;
 		double cost;
-		
-		nbr(String str, double cost){
+
+		nbr(String str, double cost) {
 			this.str = str;
 			this.cost = cost;
 		}
 	}
-	
+
 	private static final Comparator<nbr> nbr_comparator = new nbrComp();
 
 	private static class nbrComp implements Comparator<nbr> {
 		public int compare(nbr s, nbr t) {
-			if( s.cost < t.cost){
+			if (s.cost < t.cost) {
 				return -1;
-			}else{
+			} else if(s.cost > t.cost){
 				return 1;
+			}else{
+				int[] s_xy = new int[2];
+				getIndex(s.str.charAt(2), s_xy);
+				int[] t_xy = new int[2];
+				getIndex(t.str.charAt(2), t_xy);
+					if (s_xy[0] == t_xy[0]) {
+						return ((Integer) s_xy[1]).compareTo(t_xy[1]);
+					} else {
+						return ((Integer) s_xy[0]).compareTo(t_xy[0]);
+					}
 			}
 		}
 	}
-	
-	public static double MST(HashMap<String, Double> graph, char current) {
+
+	public static double MST(HashMap<String, Double> graph) {
 
 		ArrayList<String> mst = new ArrayList<String>();
 		HashSet<Character> Vnew = new HashSet<Character>();
@@ -392,23 +455,29 @@ public class tsp {
 		PriorityQueue<nbr> pq = new PriorityQueue<nbr>(11, nbr_comparator);
 		nbr popped = null;
 		TreeSet<Character> allPointsInSubgraph = new TreeSet<Character>();
-		for(String entry : graph.keySet()){
+		for (String entry : graph.keySet()) {
 			allPointsInSubgraph.add(entry.charAt(0));
+			allPointsInSubgraph.add(entry.charAt(2));
 		}
+		char current = 'A';
 		Vnew.add(current);
 		while (!isEqual(Vnew, allPointsInSubgraph)) {
 
-				for(Entry<String, Double> v : getNeighbours(graph, current).entrySet()){
-					if(!Vnew.contains(v.getKey().charAt(2))){
-						pq.add(new nbr(v.getKey(), v.getValue()));
-					}
+			for (Entry<String, Double> v : getNeighbours(graph, current)
+					.entrySet()) {
+				if(!Vnew.contains(v.getKey().charAt(2))){
+					pq.add(new nbr(v.getKey(), v.getValue()));
 				}
+			}
+			popped = pq.remove();
+			while (Vnew.contains(popped.str.charAt(0)) && Vnew.contains(popped.str.charAt(2))) {
 				popped = pq.remove();
-				mstcost += popped.cost;
-				mst.add(popped.str + ","
-						+ popped.cost);
-				current = popped.str.charAt(2); 
-				Vnew.add(current);
+				
+			}
+			mstcost += popped.cost;
+			mst.add(popped.str + "," + popped.cost);
+			current = popped.str.charAt(2);
+			Vnew.add(current);
 		}
 
 		return mstcost;
