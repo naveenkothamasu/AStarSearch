@@ -169,7 +169,7 @@ public class tsp {
 		if (taskNumber == 1) {
 			shortestPath(outputFile, outputLog, false);
 		} else if (taskNumber == 2) {
-			tsp(outputFile, outputLog);
+			tsp1(outputFile, outputLog);
 		}
 
 	}
@@ -253,7 +253,7 @@ public class tsp {
 		return subgraph;
 	}
 
-	public static void tsp(String outputFileName, String outputLogName)
+	public static void tsp1(String outputFileName, String outputLogName)
 			throws IOException {
 
 		HashMap<String, Double> allEdges = shortestPath(outputFileName,
