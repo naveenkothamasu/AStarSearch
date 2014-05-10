@@ -1,0 +1,11 @@
+A
+G
+H
+F
+I
+D
+C
+E
+B
+A
+Total Tour Cost: 114.0
